@@ -6,5 +6,6 @@ matplotlib
 jupyterlab
 
 streamlit
+watchdog
 
 pip-tools
