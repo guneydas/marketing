@@ -46,9 +46,11 @@ st.title("Facebook Revenue by Spend")
 
 st.write("See the relation between your Facebook Advertising Spend and the revenue it generates.")
 
-target_roas = st.slider(
-        "Choose target ROAS", min_value=0.8, max_value=3.9, step=0.01, value=2.0
-    )
+col1, col2, col3 = st.columns(3)
+with col1:
+    target_roas = st.slider(
+            "Choose target ROAS", min_value=1., max_value=3.9, step=0.01, value=2.0
+        )
 
 
 line = alt.Chart(df).mark_line().encode(
