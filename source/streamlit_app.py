@@ -103,3 +103,12 @@ st.altair_chart((
 ), use_container_width=True)
 
 
+# https://discuss.streamlit.io/t/remove-made-with-streamlit-from-bottom-of-app/1370/16
+hide_streamlit_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            </style>
+            """
+st.markdown(hide_streamlit_style, unsafe_allow_html=True) 
+
