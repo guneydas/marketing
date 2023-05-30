@@ -4,47 +4,121 @@ import altair as alt
 import streamlit as st
 
 
-vmax = 80000
-k = 20000
 
-def mmk(spend):
+def mmk(spend, vmax, k):
     return vmax * spend / (spend + k)
 
-def mmk_inverse(revenue):
+def mmk_inverse(revenue, vmax, k):
     return revenue * k / (vmax - revenue)
 
-def mmk_roas_to_spend(roas):
+def mmk_roas_to_spend(roas, vmax, k):
     return vmax / roas - k
 
 
-df = pd.DataFrame({'Spend': [100*i for i in range(1, 801)]})
-df['Revenue'] = df.Spend.apply(mmk).astype('int')
-df['ROAS'] = df.Revenue / df.Spend
+platform_details = {
+    'Facebook': {
+        'parent': 'Meta',
+        'Vmax': 60000,
+        'k': 20000,
+        'current': 15000,
+    },
+    'Instagram': {
+        'parent': 'Meta',
+        'Vmax': 80000,
+        'k': 30000,
+        'current': 20000,
+    },
+    'Audience Network': {
+        'parent': 'Meta',
+        'Vmax': 40000,
+        'k': 30000,
+        'current': 10000,
+    },
+    'Google Search': {
+        'parent': 'Google',
+        'Vmax': 90000,
+        'k': 5000,
+        'current': 15000,
+    },
+    'Youtube': {
+        'parent': 'Google',
+        'Vmax': 40000,
+        'k': 10000,
+        'current': 15000,
+    },
+    'Google Display Network': {
+        'parent': 'Google',
+        'Vmax': 30000,
+        'k': 20000,
+        'current': 10000,
+    },
+    'Bing Search': {
+        'parent': 'Microsoft',
+        'Vmax': 10000,
+        'k': 2000,
+        'current': 10000,
+    },
+}
 
-new_rows = []
-for roas in np.arange(0.8, 3.91, 0.01):
-    spend =  mmk_roas_to_spend(roas)
-    revenue = mmk(spend)
-    if (spend not in df.Spend.values) and (roas not in df.ROAS.values):
-        new_rows.append({
-            'ROAS': round(roas, 2),
-            'Spend': round(spend),
-            "Revenue": round(revenue),
+
+rows = []
+current_rows = []
+for platform, details in platform_details.items():
+    # calculate values for every 100s of spend and
+    for i in range(1, 801):
+        spend = 100 * i
+        revenue = round(mmk(spend, details['Vmax'], details["k"]))
+        rows.append({
+            'Spend': spend,
+            'Revenue': revenue,
+            'ROAS': revenue / spend,
+            'Platform': platform,
+            'Parent': details['parent'],
         })
+    # calculate values for every 0.01s of roas
+    min_roas = round(revenue / spend, 2)  # last calculated roas (for highest spend)
+    max_roas = round(mmk(100, details['Vmax'], details["k"]) / 100, 2)  # for min spend
+    for roas in np.arange(min_roas, max_roas + 0.01, 0.01):
+        spend = round(mmk_roas_to_spend(roas, details['Vmax'], details["k"]))
+        revenue = round(mmk(spend, details['Vmax'], details["k"]))
+        if spend % 100 != 0:
+            rows.append({
+                'Spend': spend,
+                'Revenue': revenue,
+                'ROAS': roas,
+                'Platform': platform,
+                'Parent': details['parent'],
+            })
+    # calculate values for current spend
+    spend = round(details['current'])
+    revenue = round(mmk(spend, details['Vmax'], details["k"]))
+    row = {
+        'Spend': spend,
+        'Revenue': revenue,
+        'ROAS': revenue / spend,
+        'Platform': platform,
+        'Parent': details['parent'],
+    }
+    rows.append(row)
+    current_rows.append(row)
 
-df = pd.concat([df, pd.DataFrame(new_rows)], ignore_index=True).sort_values('Spend').reset_index(drop=True)
+df = pd.DataFrame(rows).sort_values(['Parent', 'Platform', 'Spend'])
+del rows
 
+df_current = pd.DataFrame(current_rows).sort_values(['Parent', 'Platform', 'Spend'])
+del current_rows
 
+ 
 st.set_page_config(
-    page_title="Spend Diminishing Returns", 
+    page_title="Spend vs Revenue", 
     page_icon="chart_with_upwards_trend", 
     layout="centered"
 )
 
 
-st.title("Facebook Revenue by Spend")
+st.title("Ad Spend - Revenue relation")
 
-st.write("See the relation between your Facebook Advertising Spend and the revenue it generates.")
+st.write("See the relation between your Ad Spend and the Revenue it generates for each platform.")
 
 col1, col2, col3 = st.columns(3)
 with col1:
@@ -56,53 +130,42 @@ with col1:
 line = alt.Chart(df).mark_line().encode(
     alt.X('Spend', title="Spend (weekly)"),
     alt.Y('Revenue'),
+    color = 'Platform',
     tooltip = [
+        alt.Tooltip('Platform'),
         alt.Tooltip('Spend'),
         alt.Tooltip('Revenue'),
     ],
 )
 
-target_point = alt.Chart(df[df.ROAS == target_roas]).mark_point(
-    color='orange',
+target_point = alt.Chart(df[df.ROAS == target_roas]).mark_square(
     size=100,
     opacity=0.8,
 ).encode(
     alt.X('Spend'),
     alt.Y('Revenue'),
+    color = 'Platform',
 )
 
 
-current_point = alt.Chart(df[df.Spend == 14000]).mark_point(
-    color='red',
+current_point = alt.Chart(df_current).mark_circle(
     size=100,
     opacity=0.5,
 ).encode(
     alt.X('Spend'),
     alt.Y('Revenue'),
+    color = 'Platform',
 )
 
 
-annotation_layer = (
-    alt.Chart(df[df.ROAS == target_roas])
-    .mark_text(size=12, text='Target', color='orange', dy=-10, dx=-15, opacity=0.8)
-    .encode(
-        x='Spend',
-        y='Revenue'
-    ) +
-    alt.Chart(df[df.Spend == 14000])
-    .mark_text(size=12, text='Current', color='red', dy=10, dx=15, opacity=0.5)
-    .encode(
-        x='Spend',
-        y='Revenue'
-    )
-)
+
 
 
 
 
 st.altair_chart((
-    line + target_point + annotation_layer + current_point
-), use_container_width=True)
+    line + target_point  + current_point
+), use_container_width=True, )
 
 
 # https://discuss.streamlit.io/t/remove-made-with-streamlit-from-bottom-of-app/1370/16
