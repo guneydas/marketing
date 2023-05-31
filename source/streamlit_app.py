@@ -129,7 +129,7 @@ st.write("See the relation between your Ad Spend and the Revenue it generates fo
 
 
 
-tab1, tab2, tab3 = st.tabs(["1", "2", "3"])
+tab1, tab2, tab3, tab4 = st.tabs(["1", "2", "3", "4"])
 
 with tab1:
     df = df_base[df_base.Platform == 'Facebook']
@@ -249,7 +249,9 @@ with tab3:
     col1, col2 = st.columns(2)
     with col1:
         platform = st.selectbox("Choose a Platform:", df.Platform.unique())
-    with col2:
+    st.text("")
+    col1, col2 = st.columns(2)
+    with col1:
         max_roas = df.loc[df.Platform == platform, "ROAS"].max()
         target_roas = st.slider(
             "Choose target ROAS",
@@ -309,6 +311,24 @@ with tab3:
         line + target_point  + current_point + annotation_layer
     ), use_container_width=True)
 
+
+
+
+with tab4:
+    df = df_base
+    
+    line = alt.Chart(df).mark_line(
+    ).encode(
+        alt.X('Spend', title="Spend (weekly)"),
+        alt.Y('Revenue'),
+        color='Platform',
+        tooltip = [
+            alt.Tooltip('Spend'),
+            alt.Tooltip('Revenue'),
+        ],
+    ).facet(row="Platform")
+
+    st.altair_chart(line, use_container_width=True)
 
 
 
