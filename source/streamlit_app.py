@@ -105,7 +105,7 @@ for platform, details in platform_details.items():
         rows.append(row)
     current_rows.append(row)
 
-df_base = pd.DataFrame(rows).sort_values(['Parent', 'Platform', 'Spend']).reset_index(drop=True)
+df = pd.DataFrame(rows).sort_values(['Parent', 'Platform', 'Spend']).reset_index(drop=True)
 del rows
 
 df_target_roas = pd.DataFrame(target_roas_rows).sort_values(['Parent', 'Platform', 'Spend']).reset_index(drop=True)
@@ -126,50 +126,67 @@ st.title("Ad Spend - Revenue relation")
 st.write("See the relation between your Ad Spend and the Revenue it generates for each platform.")
 
 
-df = df_base
-
-col1, col2, col3 = st.columns(3)
+col1, col2 = st.columns(2)
 with col1:
-    st.text("\u25CB: Current Spend")
-    st.text("\u25A1: Target Spend")
+    platform = st.selectbox("Choose a Platform:", df.Platform.unique())
 with col2:
+    max_roas = df.loc[df.Platform == platform, "ROAS"].max()
     target_roas = st.slider(
-        "Choose target ROAS", min_value=1., max_value=4., step=0.01, value=2.0
+        "Choose target ROAS",
+        min_value=1., max_value=round(max_roas, 1), step=0.01, value=2.0,
     )
 
-line = alt.Chart(df).mark_line(
-).encode(
-    alt.X('Spend', title="Spend (weekly)"),
-    alt.Y('Revenue'),
-    color = 'Platform',
+line = alt.Chart(
+    df[df.Platform == platform]
+    ).mark_line().encode(
+        alt.X('Spend', title="Spend (weekly)"),
+        alt.Y('Revenue'),
     tooltip = [
-        alt.Tooltip('Platform'),
         alt.Tooltip('Spend'),
         alt.Tooltip('Revenue'),
     ],
 )
 target_point = alt.Chart(
-    df_target_roas[df_target_roas.ROAS == round(100*target_roas)]
-).mark_square(
+    df_target_roas[(df_target_roas.Platform == platform) & (df_target_roas.ROAS == round(100*target_roas))]
+).mark_point(
+    color='orange',
     size=100,
     opacity=0.8,
 ).encode(
     alt.X('Spend'),
     alt.Y('Revenue'),
-    color = 'Platform',
 )
 current_point = alt.Chart(
-    df_current
-).mark_circle(
+    df_current[df_current.Platform == platform]
+).mark_point(
+    color='red',
     size=100,
     opacity=0.5,
 ).encode(
     alt.X('Spend'),
     alt.Y('Revenue'),
-    color = 'Platform',
 )
+annotation_layer = (
+    alt.Chart(
+        df_target_roas[(df_target_roas.Platform == platform) & (df_target_roas.ROAS == round(100*target_roas))]
+    ).mark_text(
+        size=12, text='Target', color='orange', dy=-10, dx=-15, opacity=0.8
+    ).encode(
+        x='Spend',
+        y='Revenue'
+    ) +
+    alt.Chart(
+        df_current[df_current.Platform == platform]
+    ).mark_text(
+        size=12, text='Current', color='red', dy=10, dx=15, opacity=0.5
+    ).encode(
+        x='Spend',
+        y='Revenue'
+    )
+)
+
 st.altair_chart((
-    line + target_point  + current_point
+    line + target_point  + current_point + annotation_layer
 ), use_container_width=True)
 
 
